@@ -147,7 +147,9 @@ const ALPHA = "abcdefghijklmnopqrstuvwxyz";
 const now = new Date();
 const dayNum = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 864e5);
 const puzzleNo = dayNum - 20727; // #1 = 02/10/2026
-const START = STARTS[(dayNum * 37) % STARTS.length];
+// Palavras escolhidas à mão para dias específicos (dayNum → palavra)
+const OVERRIDES = { 20728: "livro" }; // 02/10/2026
+const START = OVERRIDES[dayNum] || STARTS[(dayNum * 37) % STARTS.length];
 const STORE_KEY = "merdle-" + dayNum;
 
 // Distância (BFS) de cada palavra até MERDA, usada para mostrar o caminho ótimo
