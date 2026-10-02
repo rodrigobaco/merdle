@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Merdle</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💩</text></svg>">
+<style>
+  :root {
+    --bg: #fbf7f2;
+    --text: #2b2118;
+    --muted: #8a7b6c;
+    --tile: #ffffff;
+    --border: #d9cfc4;
+    --brown: #a0703f;
+    --brown-text: #ffffff;
+    --changed: #e9b949;
+    --error: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1814;
+      --text: #f1e9e0;
+      --muted: #a8998a;
+      --tile: #2a241e;
+      --border: #4a4037;
+      --brown: #9a6a3a;
+      --changed: #d4a43a;
+      --error: #ff6b5b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main {
+    max-width: 420px; margin: 0 auto; padding: 16px;
+    min-height: 100vh; min-height: 100dvh;
+    display: flex; flex-direction: column;
+  }
+  .game { margin: auto 0; padding: 24px 0; }
+  header { text-align: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; }
+  h1 { margin: 0; font-size: 2rem; letter-spacing: .1em; }
+  .sub { color: var(--muted); font-size: .9rem; margin: 4px 0 0; }
+
+  .row { display: flex; gap: 6px; justify-content: center; margin: 6px 0; align-items: center; }
+  .tile {
+    width: 52px; height: 52px;
+    display: grid; place-items: center;
+    font-size: 1.6rem; font-weight: 700; text-transform: uppercase;
+    background: var(--tile); border: 2px solid var(--border); border-radius: 6px;
+  }
+  .tile.hit { background: var(--brown); border-color: var(--brown); color: var(--brown-text); }
+  .tile.changed { box-shadow: 0 0 0 3px var(--changed); }
+  .target .tile { background: transparent; border-style: dashed; color: var(--brown); }
+  .step { width: 24px; color: var(--muted); font-size: .8rem; text-align: right; }
+  .row .step:last-child { text-align: left; }
+
+  form { display: flex; gap: 8px; margin: 16px 0 4px; }
+  input {
+    flex: 1; min-width: 0;
+    font-size: 1.3rem; text-transform: uppercase; letter-spacing: .2em; text-align: center;
+    padding: 10px; border: 2px solid var(--border); border-radius: 6px;
+    background: var(--tile); color: var(--text);
+  }
+  input:focus { outline: none; border-color: var(--brown); }
+  button {
+    font: inherit; font-weight: 600; cursor: pointer;
+    padding: 10px 14px; border-radius: 6px; border: none;
+    background: var(--brown); color: #fff;
+  }
+  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+  button:disabled { opacity: .4; cursor: default; }
+  .msg { min-height: 1.4em; text-align: center; color: var(--error); font-size: .95rem; margin: 4px 0; }
+  .actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
+
+  .win {
+    text-align: center; padding: 16px; margin-top: 12px;
+    border: 2px solid var(--brown); border-radius: 8px;
+  }
+  .win h2 { margin: 0 0 8px; }
+  .win p { margin: 6px 0; }
+  .hidden { display: none; }
+
+  details { color: var(--muted); font-size: .95rem; text-align: center; }
+  summary {
+    list-style: none; cursor: pointer; user-select: none;
+    color: var(--muted); font-size: .85rem; padding: 8px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary .arrow { display: inline-block; font-size: 1.4rem; line-height: 1; transition: transform .2s; }
+  details[open] summary .arrow { transform: rotate(180deg); }
+  details p { text-align: left; }
+  @media (max-width: 380px) {
+    .tile { width: 44px; height: 44px; font-size: 1.35rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+ <div class="game">
+  <header>
+    <h1>💩 MERDLE</h1>
+    <p class="sub">Chegue em <b>MERDA</b> no menor número de passos</p>
+  </header>
+
+  <div id="board"></div>
+  <div class="row target" id="target"></div>
+
+  <form id="form" autocomplete="off">
+    <input id="guess" maxlength="5" placeholder="palavra" autocapitalize="off" spellcheck="false">
+    <button type="submit">Enviar</button>
+  </form>
+  <div class="msg" id="msg"></div>
+  <div class="actions">
+    <button class="ghost" id="undo" type="button">Desfazer</button>
+    <button class="ghost" id="restart" type="button">Recomeçar</button>
+  </div>
+
+  <div class="win hidden" id="win">
+    <h2>Você chegou na MERDA! 💩</h2>
+    <p id="result"></p>
+    <p id="best"></p>
+    <button id="share" type="button">Compartilhar</button>
+  </div>
+ </div>
+
+  <details>
+    <summary title="Como jogar">Como jogar<br><span class="arrow">⌄</span></summary>
+    <p>Chegue em <b>MERDA</b> com o menor número de passos possível.</p>
+    <p>Cada palavra deve ter exatamente <b>uma letra diferente</b> da anterior (ex.: CARTA → MARTA). Só valem palavras de 5 letras do dicionário; acentos são ignorados.</p>
+    <p>Letras de MERDA na posição certa ficam <span style="color:var(--brown);font-weight:700">marrons</span>.</p>
+    <p>Uma nova palavra inicial todo dia. Consegue achar o caminho mais curto?</p>
+  </details>
+</main>
+
+<script src="words.js"></script>
+<script>
+const GOAL = "merda";
+const DICT = new Set(WORDS);
+const ALPHA = "abcdefghijklmnopqrstuvwxyz";
+
+// Palavra do dia: mesma para todo mundo no mesmo dia (horário local)
+const now = new Date();
+const dayNum = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 864e5);
+const puzzleNo = dayNum - 20727; // #1 = 02/10/2026
+const START = STARTS[(dayNum * 37) % STARTS.length];
+const STORE_KEY = "merdle-" + dayNum;
+
+// Distância (BFS) de cada palavra até MERDA, usada para mostrar o caminho ótimo
+function neighbors(w) {
+  const out = [];
+  for (let i = 0; i < 5; i++)
+    for (const c of ALPHA)
+      if (c !== w[i]) {
+        const x = w.slice(0, i) + c + w.slice(i + 1);
+        if (DICT.has(x)) out.push(x);
+      }
+  return out;
+}
+const dist = new Map([[GOAL, 0]]);
+for (const q = [GOAL]; q.length;) {
+  const w = q.shift();
+  for (const n of neighbors(w)) if (!dist.has(n)) { dist.set(n, dist.get(w) + 1); q.push(n); }
+}
+function shortestPath(from) {
+  const path = [from];
+  while (from !== GOAL) {
+    from = neighbors(from).find(n => dist.get(n) === dist.get(from) - 1);
+    path.push(from);
+  }
+  return path;
+}
+
+let words = load() || [START];
+
+const $ = id => document.getElementById(id);
+const normalize = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const diffCount = (a, b) => [...a].filter((c, i) => c !== b[i]).length;
+
+function load() {
+  try { const w = JSON.parse(localStorage.getItem(STORE_KEY)); return Array.isArray(w) && w[0] === START ? w : null; }
+  catch { return null; }
+}
+function save() { try { localStorage.setItem(STORE_KEY, JSON.stringify(words)); } catch {} }
+
+function rowHTML(word, prev, label) {
+  const tiles = [...word].map((c, i) => {
+    const cls = ["tile"];
+    if (c === GOAL[i]) cls.push("hit");
+    if (prev && c !== prev[i]) cls.push("changed");
+    return `<div class="${cls.join(" ")}">${c}</div>`;
+  }).join("");
+  return `<div class="row"><span class="step">${label}</span>${tiles}<span class="step"></span></div>`;
+}
+
+function render() {
+  $("board").innerHTML = words.map((w, i) => rowHTML(w, words[i - 1], i === 0 ? "" : i)).join("");
+  const won = words.at(-1) === GOAL;
+  $("target").innerHTML = won ? "" :
+    `<span class="step"></span>${[...GOAL].map(c => `<div class="tile">${c}</div>`).join("")}<span class="step"></span>`;
+  $("form").classList.toggle("hidden", won);
+  $("undo").disabled = words.length === 1 || won;
+  $("win").classList.toggle("hidden", !won);
+  if (won) {
+    const steps = words.length - 1, best = dist.get(START);
+    $("result").textContent = `Você fez em ${steps} passo${steps > 1 ? "s" : ""}. O mínimo possível era ${best}.`;
+    $("best").textContent = steps === best
+      ? "Caminho perfeito! 🏆"
+      : "Um caminho mais curto: " + shortestPath(START).join(" → ").toUpperCase();
+  }
+}
+
+$("form").addEventListener("submit", e => {
+  e.preventDefault();
+  const w = normalize($("guess").value), last = words.at(-1);
+  let err = "";
+  if (!/^[a-z]{5}$/.test(w)) err = "A palavra precisa ter 5 letras.";
+  else if (!DICT.has(w)) err = "Palavra não está no dicionário.";
+  else if (diffCount(w, last) !== 1) err = "Mude exatamente uma letra.";
+  else if (words.includes(w)) err = "Você já usou essa palavra.";
+  $("msg").textContent = err;
+  if (err) return;
+  words.push(w);
+  $("guess").value = "";
+  save();
+  render();
+});
+
+$("undo").addEventListener("click", () => { words.pop(); save(); render(); $("guess").focus(); });
+$("restart").addEventListener("click", () => { words = [START]; $("msg").textContent = ""; save(); render(); $("guess").focus(); });
+
+$("share").addEventListener("click", async () => {
+  const lines = words.map(w => [...w].map((c, i) => c === GOAL[i] ? "🟫" : "⬜").join(""));
+  const text = `Merdle #${puzzleNo} — ${words.length - 1} passos (mínimo ${dist.get(START)})\n${lines.join("\n")}`;
+  try {
+    if (navigator.share) await navigator.share({ text });
+    else { await navigator.clipboard.writeText(text); $("share").textContent = "Copiado!"; }
+  } catch {}
+});
+
+render();
+$("guess").focus();
+</script>
+</body>
+</html>
