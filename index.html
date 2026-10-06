@@ -55,7 +55,7 @@
   }
   .tile.hit { background: var(--brown); border-color: var(--brown); color: var(--brown-text); }
   .tile.changed { box-shadow: 0 0 0 3px var(--changed); }
-  .target .tile { background: transparent; border-style: dashed; color: var(--brown); }
+  .target .tile { background: transparent; color: var(--brown); }
   .step { width: 24px; color: var(--muted); font-size: .8rem; text-align: right; }
   .row .step:last-child { text-align: left; }
 
@@ -72,10 +72,8 @@
     padding: 10px 14px; border-radius: 6px; border: none;
     background: var(--brown); color: #fff;
   }
-  button.ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
   button:disabled { opacity: .4; cursor: default; }
   .msg { min-height: 1.4em; text-align: center; color: var(--error); font-size: .95rem; margin: 4px 0; }
-  .actions { display: flex; gap: 8px; justify-content: center; margin-top: 8px; }
 
   .win {
     text-align: center; padding: 16px; margin-top: 12px;
@@ -115,10 +113,6 @@
     <button type="submit">Enviar</button>
   </form>
   <div class="msg" id="msg"></div>
-  <div class="actions">
-    <button class="ghost" id="undo" type="button">Desfazer</button>
-    <button class="ghost" id="restart" type="button">Recomeçar</button>
-  </div>
 
   <div class="win hidden" id="win">
     <h2>Você chegou na MERDA! 💩</h2>
@@ -131,7 +125,7 @@
   <details>
     <summary title="Como jogar">Como jogar<br><span class="arrow">⌄</span></summary>
     <p>Chegue em <b>MERDA</b> com o menor número de passos possível.</p>
-    <p>Cada palavra deve ter exatamente <b>uma letra diferente</b> da anterior (ex.: CARTA → MARTA). Só valem palavras de 5 letras do dicionário; acentos são ignorados.</p>
+    <p>Cada palavra deve ter exatamente <b>uma letra diferente</b> da anterior (ex.: CARTA → MARTA). Só valem palavras de 5 letras do dicionário; acentos são ignorados e C vale como Ç.</p>
     <p>Letras de MERDA na posição certa ficam <span style="color:var(--brown);font-weight:700">marrons</span>.</p>
     <p>Uma nova palavra inicial todo dia. Consegue achar o caminho mais curto?</p>
   </details>
@@ -180,6 +174,8 @@ let words = [START];
 
 const $ = id => document.getElementById(id);
 const normalize = s => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+// Palavras guardam o Ç digitado (ex.: LAÇOS); a lógica compara sem cedilha (C = Ç)
+const withCedilla = s => s.toLowerCase().trim().normalize("NFC").replace(/[^ç]/g, c => normalize(c));
 const diffCount = (a, b) => [...a].filter((c, i) => c !== b[i]).length;
 
 function load() {
@@ -192,7 +188,7 @@ function rowHTML(word, prev, label) {
   const tiles = [...word].map((c, i) => {
     const cls = ["tile"];
     if (c === GOAL[i]) cls.push("hit");
-    if (prev && c !== prev[i]) cls.push("changed");
+    if (prev && normalize(c) !== normalize(prev[i])) cls.push("changed");
     return `<div class="${cls.join(" ")}">${c}</div>`;
   }).join("");
   return `<div class="row"><span class="step">${label}</span>${tiles}<span class="step"></span></div>`;
@@ -200,11 +196,10 @@ function rowHTML(word, prev, label) {
 
 function render() {
   $("board").innerHTML = words.map((w, i) => rowHTML(w, words[i - 1], i === 0 ? "" : i)).join("");
-  const won = words.at(-1) === GOAL;
+  const won = normalize(words.at(-1)) === GOAL;
   $("target").innerHTML = won ? "" :
     `<span class="step"></span>${[...GOAL].map(c => `<div class="tile">${c}</div>`).join("")}<span class="step"></span>`;
   $("form").classList.toggle("hidden", won);
-  $("undo").disabled = words.length === 1 || won;
   $("win").classList.toggle("hidden", !won);
   if (won) {
     const steps = words.length - 1, best = dist.get(START);
@@ -217,30 +212,27 @@ function render() {
 
 $("form").addEventListener("submit", e => {
   e.preventDefault();
-  const w = normalize($("guess").value), last = words.at(-1);
+  const typed = withCedilla($("guess").value), w = normalize(typed), last = normalize(words.at(-1));
   let err = "";
   if (!/^[a-z]{5}$/.test(w)) err = "A palavra precisa ter 5 letras.";
   else if (!DICT.has(w)) err = "Palavra não está no dicionário.";
   else if (diffCount(w, last) !== 1) err = "Mude exatamente uma letra.";
-  else if (words.includes(w)) err = "Você já usou essa palavra.";
+  else if (words.some(x => normalize(x) === w)) err = "Você já usou essa palavra.";
   $("msg").textContent = err;
   if (err) return;
-  words.push(w);
+  words.push(typed);
   $("guess").value = "";
   save();
   render();
 });
 
-$("undo").addEventListener("click", () => { words.pop(); save(); render(); $("guess").focus(); });
-$("restart").addEventListener("click", () => { words = [START]; $("msg").textContent = ""; save(); render(); $("guess").focus(); });
 
 $("share").addEventListener("click", async () => {
   const lines = words.map(w => [...w].map((c, i) => c === GOAL[i] ? "🟫" : "⬜").join(""));
   const text = `Merdle #${puzzleNo} — ${words.length - 1} passos (mínimo ${dist.get(START)})\n${lines.join("\n")}`;
-  try {
-    if (navigator.share) await navigator.share({ text });
-    else { await navigator.clipboard.writeText(text); $("share").textContent = "Copiado!"; }
-  } catch {}
+  try { await navigator.clipboard.writeText(text); } catch { return; }
+  $("share").textContent = "Copiado!";
+  setTimeout(() => { $("share").textContent = "Compartilhar"; }, 2000);
 });
 
 // palavras.json ({"AAAA-MM-DD": "palavra"}) é buscado sem cache, então trocar a
